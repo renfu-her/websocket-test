@@ -1,0 +1,175 @@
+---
+alwaysApply: true
+---
+### 📌 版本支援對照
+
+|Laravel 版本|Reverb 支援|說明|
+|---|---|---|
+|12 / 11|✅ 官方首支援|詳細官方文件與 broadcast 整合完整 [Laravel+2Laravel+2Laravel Reverb+2](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)[Laravel](https://laravel.com/docs/12.x/broadcasting?utm_source=chatgpt.com)|
+|10.x|✅ 支援但以舊版 docs 為主|介面與用法與 11 相同，但 Laravel 官網 10.x page 警告舊舊版 [Laravel](https://laravel.com/docs/10.x?utm_source=chatgpt.com)|
+|8.x|❌ 不支援|`composer require laravel/reverb` 會失敗。建議使用開源 laravel‑websockets 或 Pusher [Laravel](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)|
+
+---
+
+### 1. 簡介
+
+Laravel Reverb 是 Laravel 官方推出的首方 WebSocket server，可在伺服器與前端之間建立高效的即時通訊通道，支援 Redis publish/subscribe 的水平擴充整合 [Laravel+2Laravel Reverb+2Laravel+2](https://reverb.laravel.com/?utm_source=chatgpt.com)。
+
+---
+
+### 2. 安裝
+
+#### ✅ 推薦方式（各版本通用）
+
+bash
+
+CopyEdit
+
+`# 快速安裝並設定 php artisan install:broadcasting --reverb`
+
+此命令一鍵完成：
+
+- 安裝 `laravel/reverb` Composer 套件
+    
+- 安裝 `laravel‑echo` + `pusher‑js` NPM 套件
+    
+- 更新 `.env` 為 Reverb 設定
+    
+- 建立 `config/broadcasting.php` 與 `routes/channels.php` 檔案 [Laravel+7Laravel+7Laravel+7](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)
+    
+
+#### 手動方式（或需更多控制時使用）：
+
+bash
+
+CopyEdit
+
+`composer require laravel/reverb php artisan reverb:install`
+
+---
+
+### 3. 基本設定（`.env` / `config/reverb.php`）
+
+env
+
+CopyEdit
+
+`REVERB_APP_ID=你的 app-id REVERB_APP_KEY=你的 app-key REVERB_APP_SECRET=你的 app-secret REVERB_HOST= （可選） REVERB_PORT=（可選）`
+
+在 `config/reverb.php` 可進行進一步設定，如：
+
+- `apps.allowed_origins`：設定允可 origin，支援 `['*']`
+    
+- 複數 apps 同 server：可設定多組 app 表單 [Laravel+8Laravel+8Laravel+8](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)[Laravel+3Laravel+3Laravel+3](https://laravel.com/docs/11.x/releases?utm_source=chatgpt.com)
+    
+- SSL 支援（主要在本地開發時使用）：支援 herd / valet 自動憑證或手動指向憑證檔案 [Laravel](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)
+    
+
+---
+
+### 4. 啟動、監控與再啟動
+
+#### 啟動 server：
+
+bash
+
+CopyEdit
+
+`php artisan reverb:start`
+
+- 預設啟動於 `0.0.0.0:8080`
+    
+- 可使用 `--host`／`--port` 自訂參數，或設定 `.env` 的 `REVERB_SERVER_HOST` 與 `REVERB_SERVER_PORT`
+    
+- **注意：** `REVERB_HOST`／`REVERB_PORT` 是給 Echo 用，與 server host/port 區隔 [Laravel](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)
+    
+
+#### 啟用 debug：
+
+bash
+
+CopyEdit
+
+`php artisan reverb:start --debug`
+
+#### 再啟動（採安全關閉所有連線後重啟）：
+
+bash
+
+CopyEdit
+
+`php artisan reverb:restart`
+
+建議在 production 使用 process manager（如 Supervisor）自動重啟，重啟流程會等待所有連線正常關閉才重啟 [Laravel](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)
+
+---
+
+### 5. 前端接收端（Echo + Pusher）
+
+安裝：
+
+bash
+
+CopyEdit
+
+`npm install --save-dev laravel-echo pusher-js`
+
+在 `resources/js/bootstrap.js`：
+
+js
+
+CopyEdit
+
+`import Echo from 'laravel-echo'; import Pusher from 'pusher-js'; window.Pusher = Pusher;  window.Echo = new Echo({   broadcaster: 'reverb',   key: import.meta.env.VITE_REVERB_APP_KEY,   wsHost: import.meta.env.VITE_REVERB_HOST,   wsPort: import.meta.env.VITE_REVERB_PORT || 8080,   wssPort: import.meta.env.VITE_REVERB_PORT || 443,   forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',   enabledTransports: ['ws', 'wss'] });`
+
+由於 Reverb 採用 Pusher 公共協議，跟 Laravel Echo（`broadcaster: 'pusher'`）設定非常雷同。只需將 `broadcaster` 改為 `reverb` 即可正常通訊 [Laravel+9Laravel+9Laravel+9](https://laravel.com/docs/12.x/broadcasting?utm_source=chatgpt.com)。
+
+---
+
+### 6. Pulse 整合監控
+
+在 `config/pulse.php` 中啟用 Reverb recorder：
+
+php
+
+CopyEdit
+
+`use Laravel\Reverb\Pulse\Recorders\ReverbConnections; use Laravel\Reverb\Pulse\Recorders\ReverbMessages;  'recorders' => [   ReverbConnections::class => ['sample_rate' => 1],   ReverbMessages::class => ['sample_rate' => 1], ],`
+
+並在 Pulse Dashboard 中加入相關卡片：
+
+blade
+
+CopyEdit
+
+`<x-pulse>   <livewire:reverb.connections cols="full" />   <livewire:reverb.messages cols="full" /> </x-pulse>`
+
+請確保在 production 環境一台伺服器運行 `pulse:check` daemon，以定時更新資料避免各 Reverb server 重複記錄 [Laravel](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)
+
+---
+
+### 7. Production 優化建議
+
+- 若使用 Laravel Forge 可啟用 Reverb 整合功能，它會自動：
+    
+    - 設定 ulimit / 開檔數量上限
+        
+    - 調整 PHP 設定適應 WebSocket 性能
+        
+    - 監控 Reverb 運行情形
+        
+- 客戶端 HTTPS → WebSocket（WSS）的最佳配置：Nginx proxy → Reverb（可使用 uWSGI 或 socket forwarding）
+    
+- Replay：使用 Redis 支援水平擴充（多台 server 共用 Redis pub/sub） [Laravel](https://laravel.com/docs/12.x/reverb?utm_source=chatgpt.com)
+    
+
+---
+
+### Laravel 版本差異比較說明
+
+|差異項目|Laravel 11.x|Laravel 10.x|Laravel 8.x|
+|---|---|---|---|
+|Reverb 版本|官方預設支援，由 Laravel 11 首推動作 [Laravel+3Laravel+3Laravel+3](https://laravel.com/docs/11.x/upgrade?utm_source=chatgpt.com)|Docker 同步支援 v1.0 版，安裝方式相同（`install:broadcasting --reverb`） [Laravel](https://laravel.com/docs/10.x?utm_source=chatgpt.com)|**不支援** Reverb，Composer 相容性不足|
+|Broadcast 預設|`install:broadcasting` 內建 Reverb option|同上|必須使用 `redis` 或 `pusher`，可考慮使用外掛 `beyondcode/laravel-websockets`|
+|配置差異|`config/reverb.php` 完整支援新增功能|支援主要功能，視使用版本略有差異|無配置檔案，需加入 WebSocket 支援邏輯|
+|Pulse 整合|官方整合支援，可使用 Livewire 組件|相同|若改用 websockets 套件，需要自行對接 Pulse|
